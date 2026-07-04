@@ -19,6 +19,10 @@ PRINTER_MODEL = os.environ.get("PRINTER_MODEL", "QL-800")
 PRINTER_BACKEND = os.environ.get("PRINTER_BACKEND", "linux_kernel")
 PRINTER_DEVICE = os.environ.get("PRINTER_DEVICE", "file:///dev/usb/lp0")
 
+# Drehung des (waagrecht gerenderten) Bildes für den Bandvorschub.
+# "90" ist Standard; auf "270" ändern, falls die Schrift kopfsteht.
+ROTATE = os.environ.get("ROTATE", "90")
+
 # Druckbare Breite quer zum Band für 29-mm-Endlos = 306 px (bei 300 dpi).
 # Das Bild ist so hoch wie die Bandbreite; die Länge wächst mit dem Text.
 TAPE_WIDTH_PX = int(os.environ.get("TAPE_WIDTH_PX", "306"))
@@ -123,7 +127,7 @@ def print_label(kind, name=None):
         qlr=qlr,
         images=[img],
         label=LABEL_SIZE,
-        rotate="auto",
+        rotate=ROTATE,
         threshold=70,
         dither=False,
         cut=True,
