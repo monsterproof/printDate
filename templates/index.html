@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Etiketten Druck</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <span class="today">Heute: {{ today }}</span>
+  </header>
+
+  <main>
+    <button class="btn btn-date" data-type="date">📅 Datum heute</button>
+
+    <div class="names">
+      {% for name in names %}
+      <button class="btn btn-name" data-type="name" data-name="{{ name }}">{{ name }}</button>
+      {% endfor %}
+    </div>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const toast = document.getElementById('toast');
+    let busy = false;
+
+    function showToast(msg, kind) {
+      toast.textContent = msg;
+      toast.className = 'toast show ' + (kind || '');
+    }
+    function hideToast() { toast.className = 'toast'; }
+
+    async function printLabel(btn) {
+      if (busy) return;
+      busy = true;
+      document.querySelectorAll('.btn').forEach(b => b.disabled = true);
+      showToast('Druckt…', 'info');
+      try {
+        const body = { type: btn.dataset.type };
+        if (btn.dataset.name) body.name = btn.dataset.name;
+        const res = await fetch('/print', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        showToast(data.ok ? '✓ ' + data.message : '✗ ' + data.message, data.ok ? 'ok' : 'err');
+      } catch (e) {
+        showToast('✗ Verbindungsfehler', 'err');
+      } finally {
+        busy = false;
+        document.querySelectorAll('.btn').forEach(b => b.disabled = false);
+        setTimeout(hideToast, 2500);
+      }
+    }
+
+    document.querySelectorAll('.btn').forEach(btn => {
+      btn.addEventListener('click', () => printLabel(btn));
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #101418;
+  --fg: #f2f5f7;
+  --date: #2563eb;
+  --date-active: #1d4ed8;
+  --name: #334155;
+  --name-active: #1e293b;
+  --ok: #16a34a;
+  --err: #dc2626;
+  --info: #64748b;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, "DejaVu Sans", sans-serif;
+  display: flex;
+  flex-direction: column;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+header {
+  padding: 12px 20px;
+  text-align: right;
+  font-size: 1.1rem;
+  opacity: 0.7;
+}
+
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 12px 24px 24px;
+  min-height: 0;
+}
+
+.btn {
+  border: none;
+  border-radius: 18px;
+  color: #fff;
+  font-size: clamp(1.4rem, 4vw, 2.4rem);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.05s ease, filter 0.1s ease;
+}
+.btn:active { transform: scale(0.97); filter: brightness(1.15); }
+.btn:disabled { opacity: 0.5; }
+
+.btn-date {
+  flex: 0 0 auto;
+  min-height: 22%;
+  padding: 24px;
+  background: var(--date);
+}
+.btn-date:active { background: var(--date-active); }
+
+.names {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  min-height: 0;
+}
+.btn-name { background: var(--name); }
+.btn-name:active { background: var(--name-active); }
+
+/* Bei ungerader Anzahl den letzten Button über beide Spalten strecken. */
+.btn-name:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translate(-50%, 120%);
+  padding: 16px 28px;
+  border-radius: 14px;
+  font-size: 1.3rem;
+  font-weight: 600;
+  background: var(--info);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  transition: transform 0.25s ease;
+  max-width: 90vw;
+  text-align: center;
+}
+.toast.show { transform: translate(-50%, 0); }
+.toast.ok { background: var(--ok); }
+.toast.err { background: var(--err); }
+.toast.info { background: var(--info); }

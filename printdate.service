@@ -1,0 +1,12 @@
+[Unit]
+Description=Etiketten Druck Station (QL-800)
+After=network.target
+
+[Service]
+ExecStart=/home/jonas/printDate/.venv/bin/python /home/jonas/printDate/app.py
+WorkingDirectory=/home/jonas/printDate
+User=jonas
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

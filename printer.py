@@ -1,0 +1,145 @@
+#!/usr/bin/env python3
+"""Etiketten-Rendering und Versand an den Brother QL-800.
+
+Rendert Datum (und optional Name) mit PIL zu einem Bild und schickt es via
+brother_ql über das linux_kernel-Backend direkt an /dev/usb/lp0.
+"""
+
+import os
+import datetime
+
+from PIL import Image, ImageDraw, ImageFont
+from brother_ql.raster import BrotherQLRaster
+from brother_ql.conversion import convert
+from brother_ql.backends.helpers import send
+
+# ── Konfiguration (aus .env, mit Defaults) ────────────────────────────────────
+LABEL_SIZE = os.environ.get("LABEL_SIZE", "29")
+PRINTER_MODEL = os.environ.get("PRINTER_MODEL", "QL-800")
+PRINTER_BACKEND = os.environ.get("PRINTER_BACKEND", "linux_kernel")
+PRINTER_DEVICE = os.environ.get("PRINTER_DEVICE", "file:///dev/usb/lp0")
+
+# Druckbare Breite quer zum Band für 29-mm-Endlos = 306 px (bei 300 dpi).
+# Das Bild ist so hoch wie die Bandbreite; die Länge wächst mit dem Text.
+TAPE_WIDTH_PX = int(os.environ.get("TAPE_WIDTH_PX", "306"))
+MARGIN_PX = 20
+
+# Deutsche Monatsnamen hartkodiert (keine Abhängigkeit von de_DE-Locale).
+MONATE = [
+    "", "Januar", "Februar", "März", "April", "Mai", "Juni",
+    "Juli", "August", "September", "Oktober", "November", "Dezember",
+]
+
+# Kandidaten für eine systemweit vorhandene, fette TrueType-Schrift.
+FONT_CANDIDATES = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+]
+
+
+def format_date_de(d=None):
+    """Formatiert ein Datum als z. B. '4. Juli 2026' (Tag ohne führende Null)."""
+    d = d or datetime.date.today()
+    return f"{d.day}. {MONATE[d.month]} {d.year}"
+
+
+def _load_font(size):
+    for path in FONT_CANDIDATES:
+        if os.path.exists(path):
+            return ImageFont.truetype(path, size)
+    return ImageFont.load_default()
+
+
+def _fit_font(text, max_width, start_size):
+    """Sucht die grösste Schriftgrösse, bei der der Text in max_width passt."""
+    size = start_size
+    while size > 12:
+        font = _load_font(size)
+        bbox = font.getbbox(text)
+        if (bbox[2] - bbox[0]) <= max_width:
+            return font
+        size -= 4
+    return _load_font(12)
+
+
+def render_label(date_str, name=None):
+    """Rendert das Etikett als 1-Bit-taugliches PIL-Bild.
+
+    Ohne Name: nur das Datum, gross und zentriert.
+    Mit Name:  Name gross oben, Datum kleiner darunter.
+    """
+    usable_h = TAPE_WIDTH_PX - 2 * MARGIN_PX
+    max_text_w = 900  # großzügige Obergrenze für die Bandlänge
+
+    if name:
+        lines = [(name, _fit_font(name, max_text_w, int(usable_h * 0.55))),
+                 (date_str, _fit_font(date_str, max_text_w, int(usable_h * 0.35)))]
+    else:
+        lines = [(date_str, _fit_font(date_str, max_text_w, int(usable_h * 0.8)))]
+
+    gap = 12 if len(lines) > 1 else 0
+    heights, widths = [], []
+    for text, font in lines:
+        bbox = font.getbbox(text)
+        widths.append(bbox[2] - bbox[0])
+        heights.append(bbox[3] - bbox[1])
+
+    content_w = max(widths)
+    img_w = content_w + 2 * MARGIN_PX
+    # Bildhöhe = Bandbreite (fix), Inhalt vertikal zentriert.
+    img = Image.new("RGB", (img_w, TAPE_WIDTH_PX), "white")
+    draw = ImageDraw.Draw(img)
+
+    total_h = sum(heights) + gap * (len(lines) - 1)
+    y = (TAPE_WIDTH_PX - total_h) // 2
+    for i, (text, font) in enumerate(lines):
+        bbox = font.getbbox(text)
+        x = (img_w - (bbox[2] - bbox[0])) // 2 - bbox[0]
+        draw.text((x, y - bbox[1]), text, fill="black", font=font)
+        y += heights[i] + gap
+
+    return img
+
+
+def print_label(kind, name=None):
+    """Rendert und druckt ein Etikett. kind: 'date' oder 'name'.
+
+    Gibt eine kurze Statusmeldung zurück. Wirft bei Druckerfehlern.
+    """
+    date_str = format_date_de()
+    if kind == "name":
+        if not name:
+            raise ValueError("Name fehlt")
+        img = render_label(date_str, name=name)
+        label_text = f"{name} / {date_str}"
+    else:
+        img = render_label(date_str)
+        label_text = date_str
+
+    qlr = BrotherQLRaster(PRINTER_MODEL)
+    qlr.exception_on_warning = True
+    instructions = convert(
+        qlr=qlr,
+        images=[img],
+        label=LABEL_SIZE,
+        rotate="auto",
+        threshold=70,
+        dither=False,
+        cut=True,
+        hq=True,
+    )
+    send(
+        instructions=instructions,
+        printer_identifier=PRINTER_DEVICE,
+        backend_identifier=PRINTER_BACKEND,
+        blocking=True,
+    )
+    return label_text
+
+
+if __name__ == "__main__":
+    import sys
+    what = sys.argv[1] if len(sys.argv) > 1 else "date"
+    who = sys.argv[2] if len(sys.argv) > 2 else None
+    print("Gedruckt:", print_label(what, who))

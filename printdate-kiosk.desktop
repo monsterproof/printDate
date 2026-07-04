@@ -1,0 +1,4 @@
+[Desktop Entry]
+Type=Application
+Name=Etiketten Kiosk
+Exec=chromium --kiosk --noerrdialogs --disable-infobars --disable-gpu --password-store=basic http://localhost:5000
