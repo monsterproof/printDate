@@ -26,13 +26,12 @@ ROTATE = os.environ.get("ROTATE", "90")
 # Druckbare Breite quer zum Band für 29-mm-Endlos = 306 px (bei 300 dpi).
 # Das Bild ist so hoch wie die Bandbreite; die Länge wächst mit dem Text.
 TAPE_WIDTH_PX = int(os.environ.get("TAPE_WIDTH_PX", "306"))
-MARGIN_PX = 20
+MARGIN_PX = 18
 
-# Deutsche Monatsnamen hartkodiert (keine Abhängigkeit von de_DE-Locale).
-MONATE = [
-    "", "Januar", "Februar", "März", "April", "Mai", "Juni",
-    "Juli", "August", "September", "Oktober", "November", "Dezember",
-]
+# Ziel-Texthöhe (px) je Zeile – zum Justieren der Grösse ohne Code-Änderung.
+# Nur-Datum füllt eine Zeile; mit Name zwei kleinere Zeilen (Datum + Name).
+SINGLE_LINE_H = int(os.environ.get("SINGLE_LINE_H", "150"))
+DOUBLE_LINE_H = int(os.environ.get("DOUBLE_LINE_H", "120"))
 
 # Kandidaten für eine systemweit vorhandene, fette TrueType-Schrift.
 FONT_CANDIDATES = [
@@ -43,9 +42,9 @@ FONT_CANDIDATES = [
 
 
 def format_date_de(d=None):
-    """Formatiert ein Datum als z. B. '4. Juli 2026' (Tag ohne führende Null)."""
+    """Formatiert ein Datum numerisch als '04.07.2026' (feste, vorhersehbare Länge)."""
     d = d or datetime.date.today()
-    return f"{d.day}. {MONATE[d.month]} {d.year}"
+    return d.strftime("%d.%m.%Y")
 
 
 def _load_font(size):
@@ -55,34 +54,37 @@ def _load_font(size):
     return ImageFont.load_default()
 
 
-def _fit_font(text, max_width, start_size):
-    """Sucht die grösste Schriftgrösse, bei der der Text in max_width passt."""
-    size = start_size
+def _font_for_height(text, target_h):
+    """Grösste Schriftgrösse, deren Texthöhe target_h nicht überschreitet."""
+    size = int(target_h * 1.5)
     while size > 12:
         font = _load_font(size)
         bbox = font.getbbox(text)
-        if (bbox[2] - bbox[0]) <= max_width:
+        if (bbox[3] - bbox[1]) <= target_h:
             return font
         size -= 4
     return _load_font(12)
 
 
 def render_label(date_str, name=None):
-    """Rendert das Etikett als 1-Bit-taugliches PIL-Bild.
+    """Rendert das Etikett waagrecht (wird beim Druck um 90° gedreht).
 
-    Ohne Name: nur das Datum, gross und zentriert.
-    Mit Name:  Name gross oben, Datum kleiner darunter.
+    Höhe = Bandbreite (306 px = 29 mm); die Länge wächst mit dem Text.
+    Ohne Name: nur das Datum, eine Zeile. Mit Name: Datum + Name je auf einer
+    eigenen Zeile, quer über die Bandbreite gestapelt.
     """
     usable_h = TAPE_WIDTH_PX - 2 * MARGIN_PX
-    max_text_w = 900  # großzügige Obergrenze für die Bandlänge
 
     if name:
-        lines = [(name, _fit_font(name, max_text_w, int(usable_h * 0.55))),
-                 (date_str, _fit_font(date_str, max_text_w, int(usable_h * 0.35)))]
+        gap = 18
+        line_h = min((usable_h - gap) // 2, DOUBLE_LINE_H)
+        lines = [(date_str, _font_for_height(date_str, line_h)),
+                 (name, _font_for_height(name, line_h))]
     else:
-        lines = [(date_str, _fit_font(date_str, max_text_w, int(usable_h * 0.8)))]
+        gap = 0
+        line_h = min(usable_h, SINGLE_LINE_H)
+        lines = [(date_str, _font_for_height(date_str, line_h))]
 
-    gap = 12 if len(lines) > 1 else 0
     heights, widths = [], []
     for text, font in lines:
         bbox = font.getbbox(text)
