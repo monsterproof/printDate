@@ -77,6 +77,11 @@ main {
 /* Bei ungerader Anzahl den letzten Button über beide Spalten strecken. */
 .btn-name:last-child:nth-child(odd) { grid-column: 1 / -1; }
 
+/* Portrait (gedrehtes Display): Namen einspaltig, grössere Touch-Ziele. */
+@media (orientation: portrait) {
+  .names { grid-template-columns: 1fr; }
+}
+
 .toast {
   position: fixed;
   left: 50%;
