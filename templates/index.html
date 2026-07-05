@@ -14,13 +14,14 @@
   </header>
 
   <main>
-    <button class="btn btn-date" data-type="date">Datum heute</button>
 
     <div class="names">
       {% for name in names %}
       <button class="btn btn-name" data-type="name" data-name="{{ name }}">{{ name }}</button>
       {% endfor %}
     </div>
+    <button class="btn btn-date" data-type="date">Datum heute</button>
+
   </main>
 
   <div id="toast" class="toast"></div>
