@@ -1,18 +1,20 @@
 <!doctype html>
 <html lang="de">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Etiketten Druck</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+
 <body>
   <header>
     <span class="today">Heute: {{ today }}</span>
   </header>
 
   <main>
-    <button class="btn btn-date" data-type="date">📅 Datum heute</button>
+    <button class="btn btn-date" data-type="date">Datum heute</button>
 
     <div class="names">
       {% for name in names %}
@@ -57,9 +59,35 @@
       }
     }
 
+    // ── Weck-Tap abfangen ──────────────────────────────────────────────
+    // swayidle schaltet den Bildschirm nach 30s aus, schluckt aber keine
+    // Eingaben. Die erste Berührung nach langer Inaktivität weckt nur den
+    // Schirm und darf keinen Druck auslösen. Kriterium wie bei swayidle:
+    // Zeit seit letzter Berührung. Guard etwas unter dem swayidle-Timeout.
+    let lastTouch = Date.now();
+    let swallowClick = false;
+    const WAKE_GUARD_MS = 28000;   // < swayidle-Timeout (30s in labwc/autostart)
+
+    window.addEventListener('pointerdown', () => {
+      const idle = Date.now() - lastTouch;
+      lastTouch = Date.now();
+      swallowClick = idle >= WAKE_GUARD_MS;
+    }, true);
+
+    window.addEventListener('click', (e) => {
+      if (swallowClick) {
+        e.stopPropagation();
+        e.preventDefault();
+        swallowClick = false;
+        showToast('Bildschirm aktiviert – nochmal tippen zum Drucken', 'info');
+        setTimeout(hideToast, 2000);
+      }
+    }, true);
+
     document.querySelectorAll('.btn').forEach(btn => {
       btn.addEventListener('click', () => printLabel(btn));
     });
   </script>
 </body>
+
 </html>
