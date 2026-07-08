@@ -39,7 +39,9 @@ def do_print():
     try:
         label = printer.print_label(kind, name)
         return jsonify(ok=True, message=f"Gedruckt: {label}")
-    except Exception as exc:  # Fehler sauber als JSON an die UI
+    except printer.PrinterOffError as exc:  # Drucker aus/Standby → klarer Hinweis
+        return jsonify(ok=False, message=str(exc)), 503
+    except Exception as exc:  # sonstige Fehler sauber als JSON an die UI
         app.logger.exception("Druckfehler")
         return jsonify(ok=False, message=f"Druckfehler: {exc}"), 500
 

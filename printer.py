@@ -43,6 +43,17 @@ FONT_CANDIDATES = [
 ]
 
 
+class PrinterOffError(RuntimeError):
+    """Drucker nicht erreichbar (aus/Standby → USB-Gerät /dev/usb/lp0 fehlt)."""
+
+
+def _device_path():
+    """Gerätepfad aus PRINTER_DEVICE (file:///dev/usb/lp0 -> /dev/usb/lp0)."""
+    if PRINTER_DEVICE.startswith("file://"):
+        return PRINTER_DEVICE[len("file://"):]
+    return None
+
+
 def format_date_de(d=None):
     """Formatiert ein Datum numerisch als '04.07.2026' (feste, vorhersehbare Länge)."""
     d = d or datetime.date.today()
@@ -125,12 +136,25 @@ def print_label(kind, name=None):
         cut=True,
         hq=True,
     )
-    send(
-        instructions=instructions,
-        printer_identifier=PRINTER_DEVICE,
-        backend_identifier=PRINTER_BACKEND,
-        blocking=True,
-    )
+    # Der QL-800 geht nach einer Weile in Standby/aus und verschwindet dann als
+    # USB-Gerät (/dev/usb/lp0). Über USB lässt er sich nicht aufwecken – deshalb
+    # eine klare Meldung statt eines kryptischen Fehlers.
+    dev = _device_path()
+    if dev and not os.path.exists(dev):
+        raise PrinterOffError(
+            "Drucker nicht gefunden – bitte Drucker einschalten und erneut drücken."
+        )
+    try:
+        send(
+            instructions=instructions,
+            printer_identifier=PRINTER_DEVICE,
+            backend_identifier=PRINTER_BACKEND,
+            blocking=True,
+        )
+    except Exception as exc:
+        raise PrinterOffError(
+            f"Drucker antwortet nicht – bitte einschalten und erneut drücken. ({exc})"
+        )
     return label_text
 
 

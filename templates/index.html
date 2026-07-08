@@ -10,7 +10,7 @@
 
 <body>
   <header>
-    <span class="today">Heute: {{ today }}</span>
+    <span class="today" id="today">Heute: {{ today }}</span>
   </header>
 
   <main>
@@ -35,6 +35,18 @@
       toast.className = 'toast show ' + (kind || '');
     }
     function hideToast() { toast.className = 'toast'; }
+
+    // Angezeigtes Datum live halten – die Kiosk-Seite wird sonst nie neu geladen
+    // und würde tagelang das Boot-Datum zeigen. (Nutzt die System-Uhr wie der
+    // Druck; korrekte Zeit hängt an NTP/RTC des Pi.)
+    function updateToday() {
+      const d = new Date();
+      const p = n => String(n).padStart(2, '0');
+      const el = document.getElementById('today');
+      if (el) el.textContent = 'Heute: ' + p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear();
+    }
+    updateToday();
+    setInterval(updateToday, 60000);
 
     async function printLabel(btn) {
       if (busy) return;
