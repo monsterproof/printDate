@@ -54,6 +54,15 @@ def _device_path():
     return None
 
 
+def clock_synced():
+    """True, wenn systemd-timesyncd die Systemuhr synchronisiert hat.
+
+    Der Pi hat keine Hardware-Uhr (RTC); ohne Sync (z. B. Boot ohne Netz) kann
+    das Datum falsch sein. Der Marker existiert erst nach erfolgreichem NTP-Sync.
+    """
+    return os.path.exists("/run/systemd/timesync/synchronized")
+
+
 def format_date_de(d=None):
     """Formatiert ein Datum numerisch als '04.07.2026' (feste, vorhersehbare Länge)."""
     d = d or datetime.date.today()

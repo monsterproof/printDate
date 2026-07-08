@@ -37,13 +37,19 @@
     function hideToast() { toast.className = 'toast'; }
 
     // Angezeigtes Datum live halten – die Kiosk-Seite wird sonst nie neu geladen
-    // und würde tagelang das Boot-Datum zeigen. (Nutzt die System-Uhr wie der
-    // Druck; korrekte Zeit hängt an NTP/RTC des Pi.)
-    function updateToday() {
-      const d = new Date();
-      const p = n => String(n).padStart(2, '0');
+    // und würde tagelang das Boot-Datum zeigen. Vom Server geholt (maßgeblich für
+    // den Druck) inkl. Warnung, falls die Uhr nicht synchronisiert ist.
+    async function updateToday() {
       const el = document.getElementById('today');
-      if (el) el.textContent = 'Heute: ' + p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear();
+      if (!el) return;
+      try {
+        const d = await (await fetch('/health')).json();
+        el.textContent = 'Heute: ' + d.today + (d.synced ? '' : '  ⚠ Uhrzeit nicht synchron – Datum prüfen!');
+        el.classList.toggle('warn', !d.synced);
+      } catch (e) {
+        const dt = new Date(), p = n => String(n).padStart(2, '0');
+        el.textContent = 'Heute: ' + p(dt.getDate()) + '.' + p(dt.getMonth() + 1) + '.' + dt.getFullYear();
+      }
     }
     updateToday();
     setInterval(updateToday, 60000);

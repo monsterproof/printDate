@@ -25,6 +25,12 @@ def index():
     )
 
 
+@app.route("/health")
+def health():
+    """Liefert das serverseitige (Druck-)Datum und den Uhr-Sync-Status."""
+    return jsonify(ok=True, today=printer.format_date_de(), synced=printer.clock_synced())
+
+
 @app.route("/print", methods=["POST"])
 def do_print():
     data = request.get_json(silent=True) or {}
