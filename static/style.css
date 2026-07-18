@@ -10,6 +10,8 @@
   --ok: #16a34a;
   --err: #dc2626;
   --info: #64748b;
+  --disposal: #dc2626;
+  --disposal-active: #b91c1c;
 }
 
 html, body {
@@ -70,6 +72,14 @@ main {
   background: var(--date);
 }
 .btn-date:active { background: var(--date-active); }
+
+.btn-disposal {
+  flex: 0 0 auto;
+  min-height: 22%;
+  padding: 24px;
+  background: var(--disposal);
+}
+.btn-disposal:active { background: var(--disposal-active); }
 
 .names {
   flex: 1;

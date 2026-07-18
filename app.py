@@ -37,7 +37,7 @@ def do_print():
     kind = data.get("type")
     name = data.get("name")
 
-    if kind not in ("date", "name"):
+    if kind not in ("date", "name", "disposal"):
         return jsonify(ok=False, message="Unbekannter Druckauftrag"), 400
     if kind == "name" and name not in NAMES:
         return jsonify(ok=False, message="Unbekannter Name"), 400

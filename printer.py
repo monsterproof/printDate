@@ -31,6 +31,19 @@ MARGIN_PX = int(os.environ.get("MARGIN_PX", "16"))
 # Mindest-Etikettenlänge in px (der QL-800 verlangt >= 150 Rasterzeilen).
 MIN_LABEL_LEN = int(os.environ.get("MIN_LABEL_LEN", "160"))
 
+# ── Entsorgungs-Etikett ("Wird entsorgt am: …") ───────────────────────────────
+# Tage, die auf heute addiert werden (Entsorgungsdatum = heute + DISPOSAL_DAYS).
+DISPOSAL_DAYS = int(os.environ.get("DISPOSAL_DAYS", "5"))
+# Rot-Druck. Nur mit der Zweifarb-Rolle DK-22251 (schwarz/rot, 62 mm) möglich!
+# Mit der normalen 29-mm-Rolle (DK-22210) kommt der Text trotzdem schwarz.
+# Zum Aktivieren: DISPOSAL_RED=1 und DISPOSAL_LABEL_SIZE=62 setzen.
+DISPOSAL_RED = os.environ.get("DISPOSAL_RED", "0") == "1"
+# Invertiert: weisser Text auf schwarzem (bzw. rotem) Grund → deutlich auffälliger.
+# Auf "0" setzen für normalen Text auf weissem Grund.
+DISPOSAL_INVERT = os.environ.get("DISPOSAL_INVERT", "1") == "1"
+# Etikettengrösse speziell fürs Entsorgungs-Etikett (Default = normale Grösse).
+DISPOSAL_LABEL_SIZE = os.environ.get("DISPOSAL_LABEL_SIZE", LABEL_SIZE)
+
 # Grösster erlaubter Schriftgrad; die tatsächliche Grösse wird zusätzlich so
 # verkleinert, dass jede Zeile in die 29-mm-Breite passt.
 MAX_FONT = int(os.environ.get("MAX_FONT", "80"))
@@ -69,6 +82,11 @@ def format_date_de(d=None):
     return d.strftime("%d.%m.%Y")
 
 
+def disposal_date_str():
+    """Entsorgungsdatum als 'TT.MM.JJJJ' = heute + DISPOSAL_DAYS."""
+    return format_date_de(datetime.date.today() + datetime.timedelta(days=DISPOSAL_DAYS))
+
+
 def _load_font(size):
     for path in FONT_CANDIDATES:
         if os.path.exists(path):
@@ -87,14 +105,15 @@ def _font_for_width(texts, max_width):
     return _load_font(8)
 
 
-def render_label(date_str, name=None):
-    """Rendert das Etikett quer: die Zeilen laufen über die 29-mm-Bandbreite.
+def _render_lines(texts, fill="black", bg="white"):
+    """Rendert eine Liste Textzeilen quer über die 29-mm-Bandbreite.
 
     Bildbreite = Bandbreite (306 px, fix); die Länge wächst nur mit der
-    Zeilenzahl → kurze Etiketten. Ohne Name eine Zeile (Datum), mit Name zwei
-    Zeilen (Datum oben, Name unten), beide auf die Breite gefittet.
+    Zeilenzahl → kurze Etiketten. Alle Zeilen werden zentriert und gemeinsam auf
+    die Breite gefittet. fill="red" ergibt roten Text (nur mit Zweifarb-Rolle
+    DK-22251 wirklich rot – sonst schwarz). bg="black" mit fill="white" ergibt
+    weisse Schrift auf voll bedrucktem Grund (auffällig auch ohne Rot).
     """
-    texts = [date_str] if not name else [date_str, name]
     max_w = TAPE_WIDTH_PX - 2 * MARGIN_PX
     font = _font_for_width(texts, max_w)
 
@@ -106,29 +125,54 @@ def render_label(date_str, name=None):
     img_h = max(content_h + 2 * MARGIN_PX, MIN_LABEL_LEN)
 
     # Breite = Bandbreite (fix); Höhe = Vorschublänge (klein).
-    img = Image.new("RGB", (TAPE_WIDTH_PX, img_h), "white")
+    img = Image.new("RGB", (TAPE_WIDTH_PX, img_h), bg)
     draw = ImageDraw.Draw(img)
 
     y = (img_h - content_h) // 2
     for text, b, h in zip(texts, dims, heights):
         x = (TAPE_WIDTH_PX - (b[2] - b[0])) // 2 - b[0]
-        draw.text((x, y - b[1]), text, fill="black", font=font)
+        draw.text((x, y - b[1]), text, fill=fill, font=font)
         y += h + gap
 
     return img
 
 
+def render_label(date_str, name=None):
+    """Datums-Etikett (schwarz): eine Zeile Datum, mit Name zwei Zeilen."""
+    texts = [date_str] if not name else [date_str, name]
+    return _render_lines(texts)
+
+
+def render_disposal(red=DISPOSAL_RED, invert=DISPOSAL_INVERT):
+    """Entsorgungs-Etikett: 'Wird entsorgt am:' + Datum (heute + DISPOSAL_DAYS).
+
+    invert=True → weisser Text auf schwarzem (bzw. mit Rot-Rolle rotem) Grund.
+    """
+    texts = ["Wird entsorgt am:", disposal_date_str()]
+    color = "red" if red else "black"
+    if invert:
+        return _render_lines(texts, fill="white", bg=color)
+    return _render_lines(texts, fill=color)
+
+
 def print_label(kind, name=None):
-    """Rendert und druckt ein Etikett. kind: 'date' oder 'name'.
+    """Rendert und druckt ein Etikett. kind: 'date', 'name' oder 'disposal'.
 
     Gibt eine kurze Statusmeldung zurück. Wirft bei Druckerfehlern.
     """
     date_str = format_date_de()
+    label_size = LABEL_SIZE
+    red = False
     if kind == "name":
         if not name:
             raise ValueError("Name fehlt")
         img = render_label(date_str, name=name)
         label_text = f"{name} / {date_str}"
+    elif kind == "disposal":
+        red = DISPOSAL_RED
+        label_size = DISPOSAL_LABEL_SIZE
+        img = render_disposal(red=red)
+        label_text = f"Wird entsorgt am: {disposal_date_str()}"
     else:
         img = render_label(date_str)
         label_text = date_str
@@ -138,12 +182,13 @@ def print_label(kind, name=None):
     instructions = convert(
         qlr=qlr,
         images=[img],
-        label=LABEL_SIZE,
+        label=label_size,
         rotate=ROTATE,
         threshold=70,
         dither=False,
         cut=True,
         hq=True,
+        red=red,
     )
     # Der QL-800 geht nach einer Weile in Standby/aus und verschwindet dann als
     # USB-Gerät (/dev/usb/lp0). Über USB lässt er sich nicht aufwecken – deshalb
