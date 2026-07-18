@@ -105,23 +105,19 @@ def _font_for_width(texts, max_width):
     return _load_font(8)
 
 
-def _render_lines(texts, fill="black", bg="white"):
-    """Rendert eine Liste Textzeilen quer über die 29-mm-Bandbreite.
+def _compose(lines, fill="black", bg="white"):
+    """Rendert Zeilen (Text + eigene Schrift je Zeile) quer über die Bandbreite.
 
-    Bildbreite = Bandbreite (306 px, fix); die Länge wächst nur mit der
-    Zeilenzahl → kurze Etiketten. Alle Zeilen werden zentriert und gemeinsam auf
-    die Breite gefittet. fill="red" ergibt roten Text (nur mit Zweifarb-Rolle
-    DK-22251 wirklich rot – sonst schwarz). bg="black" mit fill="white" ergibt
-    weisse Schrift auf voll bedrucktem Grund (auffällig auch ohne Rot).
+    lines: Liste von (text, font). Bildbreite = Bandbreite (306 px, fix); die
+    Länge wächst nur mit dem Inhalt → kurze Etiketten. Alle Zeilen zentriert.
+    fill="red" ergibt roten Text (nur mit Zweifarb-Rolle DK-22251 wirklich rot).
+    bg="black" mit fill="white" ergibt weisse Schrift auf voll bedrucktem Grund.
     """
-    max_w = TAPE_WIDTH_PX - 2 * MARGIN_PX
-    font = _font_for_width(texts, max_w)
-
-    dims = [font.getbbox(t) for t in texts]
+    dims = [font.getbbox(text) for text, font in lines]
     heights = [b[3] - b[1] for b in dims]
-    gap = int(max(heights) * 0.35) if len(texts) > 1 else 0
+    gap = int(max(heights) * 0.30) if len(lines) > 1 else 0
 
-    content_h = sum(heights) + gap * (len(texts) - 1)
+    content_h = sum(heights) + gap * (len(lines) - 1)
     img_h = max(content_h + 2 * MARGIN_PX, MIN_LABEL_LEN)
 
     # Breite = Bandbreite (fix); Höhe = Vorschublänge (klein).
@@ -129,12 +125,18 @@ def _render_lines(texts, fill="black", bg="white"):
     draw = ImageDraw.Draw(img)
 
     y = (img_h - content_h) // 2
-    for text, b, h in zip(texts, dims, heights):
+    for (text, font), b, h in zip(lines, dims, heights):
         x = (TAPE_WIDTH_PX - (b[2] - b[0])) // 2 - b[0]
         draw.text((x, y - b[1]), text, fill=fill, font=font)
         y += h + gap
 
     return img
+
+
+def _render_lines(texts, fill="black", bg="white"):
+    """Zeilen mit gemeinsamem, auf die Breite gefittetem Schriftgrad."""
+    font = _font_for_width(texts, TAPE_WIDTH_PX - 2 * MARGIN_PX)
+    return _compose([(t, font) for t in texts], fill=fill, bg=bg)
 
 
 def render_label(date_str, name=None):
@@ -144,15 +146,24 @@ def render_label(date_str, name=None):
 
 
 def render_disposal(red=DISPOSAL_RED, invert=DISPOSAL_INVERT):
-    """Entsorgungs-Etikett: 'Wird entsorgt am:' + Datum (heute + DISPOSAL_DAYS).
+    """Entsorgungs-Etikett: kleine Kopfzeile 'Wird entsorgt:' + grosses Datum.
 
-    invert=True → weisser Text auf schwarzem (bzw. mit Rot-Rolle rotem) Grund.
+    Das Datum bekommt denselben (breiten) Schriftgrad wie das normale
+    Datums-Etikett; die Kopfzeile bleibt bewusst kleiner. invert=True → weisser
+    Text auf schwarzem (bzw. mit Rot-Rolle rotem) Grund.
     """
-    texts = ["Wird entsorgt am:", disposal_date_str()]
-    color = "red" if red else "black"
-    if invert:
-        return _render_lines(texts, fill="white", bg=color)
-    return _render_lines(texts, fill=color)
+    max_w = TAPE_WIDTH_PX - 2 * MARGIN_PX
+    date_str = disposal_date_str()
+    date_font = _font_for_width([date_str], max_w)              # gross wie beim Datum
+    header_font = _load_font(max(12, int(date_font.size * 0.55)))  # Kopfzeile kleiner
+
+    fill = "white" if invert else ("red" if red else "black")
+    bg = ("red" if red else "black") if invert else "white"
+    return _compose(
+        [("Wird entsorgt:", header_font), (date_str, date_font)],
+        fill=fill,
+        bg=bg,
+    )
 
 
 def print_label(kind, name=None):
