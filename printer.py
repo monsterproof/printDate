@@ -82,9 +82,9 @@ def format_date_de(d=None):
     return d.strftime("%d.%m.%Y")
 
 
-def disposal_date_str():
-    """Entsorgungsdatum als 'TT.MM.JJJJ' = heute + DISPOSAL_DAYS."""
-    return format_date_de(datetime.date.today() + datetime.timedelta(days=DISPOSAL_DAYS))
+def disposal_date_str(days=DISPOSAL_DAYS):
+    """Entsorgungsdatum als 'TT.MM.JJJJ' = heute + days (Default DISPOSAL_DAYS)."""
+    return format_date_de(datetime.date.today() + datetime.timedelta(days=days))
 
 
 def _load_font(size):
@@ -145,7 +145,7 @@ def render_label(date_str, name=None):
     return _render_lines(texts)
 
 
-def render_disposal(red=DISPOSAL_RED, invert=DISPOSAL_INVERT):
+def render_disposal(red=DISPOSAL_RED, invert=DISPOSAL_INVERT, days=DISPOSAL_DAYS):
     """Entsorgungs-Etikett: kleine Kopfzeile 'Wird entsorgt:' + grosses Datum.
 
     Das Datum bekommt denselben (breiten) Schriftgrad wie das normale
@@ -153,7 +153,7 @@ def render_disposal(red=DISPOSAL_RED, invert=DISPOSAL_INVERT):
     Text auf schwarzem (bzw. mit Rot-Rolle rotem) Grund.
     """
     max_w = TAPE_WIDTH_PX - 2 * MARGIN_PX
-    date_str = disposal_date_str()
+    date_str = disposal_date_str(days)
     date_font = _font_for_width([date_str], max_w)              # gross wie beim Datum
     header_font = _load_font(max(12, int(date_font.size * 0.55)))  # Kopfzeile kleiner
 
@@ -166,8 +166,10 @@ def render_disposal(red=DISPOSAL_RED, invert=DISPOSAL_INVERT):
     )
 
 
-def print_label(kind, name=None):
+def print_label(kind, name=None, days=DISPOSAL_DAYS):
     """Rendert und druckt ein Etikett. kind: 'date', 'name' oder 'disposal'.
+
+    days: nur fürs Entsorgungs-Etikett relevant (Entsorgungsdatum = heute + days).
 
     Gibt eine kurze Statusmeldung zurück. Wirft bei Druckerfehlern.
     """
@@ -182,8 +184,8 @@ def print_label(kind, name=None):
     elif kind == "disposal":
         red = DISPOSAL_RED
         label_size = DISPOSAL_LABEL_SIZE
-        img = render_disposal(red=red)
-        label_text = f"Wird entsorgt am: {disposal_date_str()}"
+        img = render_disposal(red=red, days=days)
+        label_text = f"Wird entsorgt am: {disposal_date_str(days)}"
     else:
         img = render_label(date_str)
         label_text = date_str

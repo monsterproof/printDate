@@ -20,7 +20,11 @@
       <button class="btn btn-name" data-type="name" data-name="{{ name }}">{{ name }}</button>
       {% endfor %}
     </div>
-    <button class="btn btn-disposal" data-type="disposal">Entsorgen (+5 Tage)</button>
+    <div class="disposal-row">
+      <button class="btn btn-step" id="days-minus" type="button" aria-label="Tage verringern">−</button>
+      <button class="btn btn-disposal" data-type="disposal">Entsorgen (+<span id="days-label">5</span> Tage)</button>
+      <button class="btn btn-step" id="days-plus" type="button" aria-label="Tage erhöhen">+</button>
+    </div>
     <button class="btn btn-date" data-type="date">Datum heute</button>
 
   </main>
@@ -63,6 +67,7 @@
       try {
         const body = { type: btn.dataset.type };
         if (btn.dataset.name) body.name = btn.dataset.name;
+        if (btn.dataset.type === 'disposal') body.days = disposalDays;
         const res = await fetch('/print', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -102,9 +107,22 @@
       }
     }, true);
 
-    document.querySelectorAll('.btn').forEach(btn => {
+    // Nur Buttons mit data-type lösen einen Druck aus (nicht die +/- Stepper).
+    document.querySelectorAll('.btn[data-type]').forEach(btn => {
       btn.addEventListener('click', () => printLabel(btn));
     });
+
+    // ── Entsorgungs-Tage per +/- verstellen ────────────────────────────
+    // Nur zur Laufzeit gehalten; nach Neustart wieder Default (5 Tage).
+    const DEFAULT_DAYS = 5, MIN_DAYS = 1, MAX_DAYS = 365;
+    let disposalDays = DEFAULT_DAYS;
+    const daysLabel = document.getElementById('days-label');
+    function setDays(n) {
+      disposalDays = Math.min(MAX_DAYS, Math.max(MIN_DAYS, n));
+      daysLabel.textContent = disposalDays;
+    }
+    document.getElementById('days-minus').addEventListener('click', () => setDays(disposalDays - 1));
+    document.getElementById('days-plus').addEventListener('click', () => setDays(disposalDays + 1));
   </script>
 </body>
 

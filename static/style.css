@@ -73,13 +73,29 @@ main {
 }
 .btn-date:active { background: var(--date-active); }
 
-.btn-disposal {
+.disposal-row {
   flex: 0 0 auto;
   min-height: 22%;
+  display: flex;
+  gap: 16px;
+}
+
+.btn-disposal {
+  flex: 1 1 auto;
   padding: 24px;
   background: var(--disposal);
 }
 .btn-disposal:active { background: var(--disposal-active); }
+
+/* +/- Stepper zum Verstellen der Entsorgungs-Tage. */
+.btn-step {
+  flex: 0 0 auto;
+  width: clamp(64px, 18%, 130px);
+  background: var(--name);
+  font-size: clamp(2rem, 6vw, 3.2rem);
+  line-height: 1;
+}
+.btn-step:active { background: var(--name-active); }
 
 .names {
   flex: 1;

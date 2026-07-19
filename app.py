@@ -42,8 +42,17 @@ def do_print():
     if kind == "name" and name not in NAMES:
         return jsonify(ok=False, message="Unbekannter Name"), 400
 
+    # Entsorgungs-Tage: von der UI verstellbar (Default 5), sonst DISPOSAL_DAYS.
+    days = data.get("days", printer.DISPOSAL_DAYS)
     try:
-        label = printer.print_label(kind, name)
+        days = int(days)
+    except (TypeError, ValueError):
+        return jsonify(ok=False, message="Ungültige Tageszahl"), 400
+    if not 1 <= days <= 365:
+        return jsonify(ok=False, message="Tageszahl ausserhalb Bereich (1–365)"), 400
+
+    try:
+        label = printer.print_label(kind, name, days=days)
         return jsonify(ok=True, message=f"Gedruckt: {label}")
     except printer.PrinterOffError as exc:  # Drucker aus/Standby → klarer Hinweis
         return jsonify(ok=False, message=str(exc)), 503
